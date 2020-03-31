@@ -113,7 +113,6 @@ Pour établir la table de filtrage, voici les **conditions à respecter** dans l
   <li>En suivant la méthodologie vue en classe, établir la table de filtrage avec précision en spécifiant la source et la destination, le type de trafic (TCP/UDP/ICMP/any), les ports sources et destinations ainsi que l'action désirée (**Accept** ou **Drop**, éventuellement **Reject**).
   </li>                                  
 </ol>
-
 _Pour l'autorisation d'accès (**Accept**), il s'agit d'être le plus précis possible lors de la définition de la source et la destination : si l'accès ne concerne qu'une seule machine (ou un groupe), il faut préciser son adresse IP ou son nom (si vous ne pouvez pas encore la déterminer), et non la zone. 
 Appliquer le principe inverse (être le plus large possible) lorsqu'il faut refuser (**Drop**) une connexion._
 
@@ -123,15 +122,29 @@ _Lors de la définition d'une zone, spécifier l'adresse du sous-réseau IP avec
 
 **LIVRABLE : Remplir le tableau**
 
-| Adresse IP source | Adresse IP destination | Type | Port src | Port dst | Action |
-| :---:             | :---:                  | :---:| :------: | :------: | :----: |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
+| Adresse IP source | Adresse IP destination |        Type         | Port src | Port dst | Action |
+| :---------------: | :--------------------: | :-----------------: | :------: | :------: | :----: |
+| 192.168.100.0/24  |          WAN           | ICMP / echo-request |    x     |    x     | ACCEPT |
+| 192.168.100.0/24  |    192.168.200.0/24    | ICMP / echo-request |    x     |    x     | ACCEPT |
+| 192.168.200.0/24  |    192.168.100.0/24    | ICMP / echo-request |    x     |    x     | ACCEPT |
+|        WAN        |    192.168.100.0/24    |  ICMP / echo-reply  |    x     |    x     | ACCEPT |
+| 192.168.200.0/24  |    192.168.100.0/24    |  ICMP / echo-reply  |    x     |    x     | ACCEPT |
+| 192.168.100.0/24  |    192.168.200.0/24    |  ICMP / echo-reply  |    x     |    x     | ACCEPT |
+| 192.168.100.0/24  |          WAN           |         TCP         |    x     |    53    | ACCEPT |
+| 192.168.100.0/24  |          WAN           |         UDP         |    x     |    53    | ACCEPT |
+|        WAN        |    192.168.100.0/24    |         TCP         |    53    |    x     | ACCEPT |
+|        WAN        |    192.168.100.0/24    |         UDP         |    53    |    x     | ACCEPT |
+| 192.168.100.0/24  |          WAN           |         TCP         |    x     |    80    | ACCEPT |
+|        WAN        |    192.168.100.0/24    |         TCP         |    80    |    x     | ACCEPT |
+| 192.168.100.0/24  |          WAN           |         TCP         |    x     |   8080   | ACCEPT |
+|        WAN        |    192.168.100.0/24    |         TCP         |   8080   |    x     | ACCEPT |
+| 192.168.100.0/24  |          WAN           |         TCP         |    x     |   443    | ACCEPT |
+|        WAN        |    192.168.100.0/24    |         TCP         |   443    |    x     | ACCEPT |
+|   192.168.200.3   |       LAN et WAN       |         TCP         |    x     |    80    | ACCEPT |
+|    LAN et WAN     |     192.168.200.3      |         TCP         |    80    |    x     | ACCEPT |
+|   192.168.100.3   |     192.168.100.2      |         TCP         |    x     |    22    | ACCEPT |
+|   192.168.100.2   |     192.168.100.3      |         TCP         |    22    |    x     | ACCEPT |
+|                   |                        |                     |          |          |        |
 
 ---
 
@@ -228,6 +241,8 @@ ping 192.168.200.3
 
 **LIVRABLE : capture d'écran de votre tentative de ping.**  
 
+![image](img\Tentative de ping.PNG)
+
 ---
 
 En effet, la communication entre les clients dans le LAN et les serveurs dans la DMZ doit passer à travers le Firewall. Il faut donc définir le Firewall comme passerelle par défaut pour le client dans le LAN et le serveur dans la DMZ.
@@ -264,7 +279,7 @@ et enregistrer et fermer le fichier en question.
 Toujours dans un terminal de votre serveur, taper les commandes suivantes :
 
 ```bash
-ip route del default 
+![Nouvelle Tentative de ping](E:\Etudes\HEIG-VD\2e année\SRX\2.Labo\Labo_FireWall\Livrable\Nouvelle Tentative de ping.PNG)ip route del default 
 ip route add default via 192.168.200.2
 
 service nginx start
@@ -282,6 +297,8 @@ ping 192.168.100.3
 ---
 
 **LIVRABLE : capture d'écran de votre nouvelle tentative de ping.**
+
+![image](img\Nouvelle Tentative de ping.PNG)
 
 ---
 
@@ -391,6 +408,14 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+iptables -t filter -A FORWARD -p icmp --icmp-type echo-request -j ACCEPT -s 192.168.100.0/24 -d 192.168.200.0/24
+iptables -t filter -A FORWARD -p icmp --icmp-type echo-request -j ACCEPT -d 192.168.100.0/24 -s 192.168.200.0/24
+iptables -t filter -A FORWARD -p icmp --icmp-type echo-request -j ACCEPT -o eth0 -s 192.168.100.0/24
+
+iptables -t filter -A FORWARD -p icmp --icmp-type echo-reply -j ACCEPT -d 192.168.200.0/24 -s 192.168.100.0/24
+iptables -t filter -A FORWARD -p icmp --icmp-type echo-reply -j ACCEPT -s 192.168.200.0/24 -d 192.168.100.0/24
+iptables -t filter -A FORWARD -p icmp --icmp-type echo-reply -j ACCEPT -i eth0  -d 192.168.100.0/24
+
 ```
 ---
 
@@ -403,11 +428,13 @@ LIVRABLE : Commandes iptables
 
 ```bash
 ping 8.8.8.8
-``` 	            
+```
 Faire une capture du ping.
 
 ---
 **LIVRABLE : capture d'écran de votre ping vers l'Internet.**
+
+![image](img\QuestionsBPingVersInternet.PNG)
 
 ---
 
@@ -417,38 +444,25 @@ Faire une capture du ping.
 </ol>
 
 
-| De Client\_in\_LAN à | OK/KO | Commentaires et explications |
-| :---                 | :---: | :---                         |
-| Interface DMZ du FW  |       |                              |
-| Interface LAN du FW  |       |                              |
-| Client LAN           |       |                              |
-| Serveur WAN          |       |                              |
+| De Client\_in\_LAN à | OK/KO | Commentaires et explications                                 |
+| :------------------- | :---: | :----------------------------------------------------------- |
+| Interface DMZ du FW  |  KO   | Ne fonctionne pas car on n'autorise que les requêtes et réponses en transition, et non pas sur les interfaces du firewall |
+| Interface LAN du FW  |  KO   | Ne fonctionne pas car on n'autorise que les requêtes et réponses en transition, et non pas sur les interfaces du firewall |
+| Client LAN           |  OK   | Fonctionne correctement                                      |
+| Serveur WAN          |  OK   | Fonctionne correctement                                      |
 
 
-| De Server\_in\_DMZ à | OK/KO | Commentaires et explications |
-| :---                 | :---: | :---                         |
-| Interface DMZ du FW  |       |                              |
-| Interface LAN du FW  |       |                              |
-| Serveur DMZ          |       |                              |
-| Serveur WAN          |       |                              |
+| De Server\_in\_DMZ à | OK/KO | Commentaires et explications                                 |
+| :------------------- | :---: | :----------------------------------------------------------- |
+| Interface DMZ du FW  |  KO   | Ne fonctionne pas car on n'autorise que les requêtes et réponses en transition, et non pas sur les interfaces du firewall |
+| Interface LAN du FW  |  KO   | Ne fonctionne pas car on n'autorise que les requêtes et réponses en transition, et non pas sur les interfaces du firewall |
+| Serveur DMZ          |  OK   | Fonctionne correctement                                      |
+| Serveur WAN          |  KO   | Aucune règle mise en place pour accepter les requêtes de DMZ à WAN |
 
 
 ## Règles pour le protocole DNS
 
-<ol type="a" start="4">
-  <li>Si un ping est effectué sur un serveur externe en utilisant en argument un nom DNS, le client ne pourra pas le résoudre. Le démontrer à l'aide d'une capture, par exemple avec la commande suivante : 
-  </li>                                  
-</ol>
-
-```bash
-ping www.google.com
-```
-
-* Faire une capture du ping.
-
----
-
-**LIVRABLE : capture d'écran de votre ping.**
+![QuestionsDPingVersGoogle](img\QuestionsDPingVersGoogle.PNG)
 
 ---
 
@@ -460,6 +474,10 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+iptables -t filter -A FORWARD -p tcp --source 192.168.100.0/24 --dport 53 -j ACCEPT
+iptables -t filter -A FORWARD -p udp --source 192.168.100.0/24 --dport 53 -j ACCEPT
+iptables -t filter -A FORWARD -p tcp --destination 192.168.100.0/24 --sport 53 -j ACCEPT
+iptables -t filter -A FORWARD -p udp --destination 192.168.100.0/24 --sport 53 -j ACCEPT
 ```
 
 ---
@@ -468,7 +486,6 @@ LIVRABLE : Commandes iptables
   <li>Tester en réitérant la commande ping sur le serveur de test (Google ou autre) : 
   </li>                                  
 </ol>
-
 ---
 
 **LIVRABLE : capture d'écran de votre ping.**
@@ -479,11 +496,12 @@ LIVRABLE : Commandes iptables
   <li>Remarques (sur le message du premier ping)? 
   </li>                                  
 </ol>
-
 ---
 **Réponse**
 
 **LIVRABLE : Votre réponse ici...**
+
+La request de résolution de nom est refusée par le firewall
 
 ---
 
@@ -504,6 +522,13 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+
+iptables -t filter -A FORWARD -p tcp --dport 80 -j ACCEPT -s 192.168.100.0/24
+iptables -t filter -A FORWARD -p tcp --sport 80 -j ACCEPT -d 192.168.100.0/24
+iptables -t filter -A FORWARD -p tcp --dport 8080 -j ACCEPT -s 192.168.100.0/24
+iptables -t filter -A FORWARD -p tcp --sport 8080 -j ACCEPT -d 192.168.100.0/24
+iptables -t filter -A FORWARD -p tcp --dport 443 -j ACCEPT -s 192.168.100.0/24
+iptables -t filter -A FORWARD -p tcp --sport 443 -j ACCEPT -d 192.168.100.0/24
 ```
 
 ---
@@ -516,6 +541,8 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+iptables -t filter -A FORWARD -p tcp --dport 80 -j ACCEPT -s 192.168.200.3
+iptables -t filter -A FORWARD -p tcp --sport 80 -j ACCEPT -d 192.168.200.3
 ```
 ---
 
@@ -523,10 +550,11 @@ LIVRABLE : Commandes iptables
   <li>Tester l’accès à ce serveur depuis le LAN utilisant utilisant wget (ne pas oublier les captures d'écran). 
   </li>                                  
 </ol>
-
 ---
 
 **LIVRABLE : capture d'écran.**
+
+![image](img\QuestionsGwget.PNG)
 
 ---
 
@@ -544,6 +572,10 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+iptables -t filter -A INPUT -p tcp --dport 22 -j ACCEPT -s 192.168.100.3
+iptables -t filter -A OUTPUT -p tcp --sport 22 -j ACCEPT -d 192.168.100.3
+iptables -t filter -A FORWARD -p tcp --sport 22 -j ACCEPT -s 192.168.200.3 -d 192.168.100.3
+iptables -t filter -A FORWARD -p tcp --dport 22 -j ACCEPT -d 192.168.200.3 -s 192.168.100.3
 ```
 
 ---
@@ -558,17 +590,20 @@ ssh root@192.168.200.3 (password : celui que vous avez configuré)
 
 **LIVRABLE : capture d'écran de votre connexion ssh.**
 
+![image](img\livrableSSH.PNG)
+
 ---
 
 <ol type="a" start="9">
   <li>Expliquer l'utilité de **ssh** sur un serveur. 
   </li>                                  
 </ol>
-
 ---
 **Réponse**
 
 **LIVRABLE : Votre réponse ici...**
+
+Permet de prendre le contrôle à distance d'une machine, ici d'un serveur
 
 ---
 
@@ -583,6 +618,8 @@ ssh root@192.168.200.3 (password : celui que vous avez configuré)
 
 **LIVRABLE : Votre réponse ici...**
 
+En cas de mauvaise configuration, n'importe qui peut tenter de se connecter  en SSH sur notre serveur
+
 ---
 
 ## Règles finales iptables
@@ -593,9 +630,10 @@ A présent, vous devriez avoir le matériel nécessaire afin de reproduire la ta
   <li>Insérer la capture d’écran avec toutes vos règles iptables
   </li>                                  
 </ol>
-
 ---
 
 **LIVRABLE : capture d'écran avec toutes vos règles.**
+
+![image](img\iptables.PNG)
 
 ---
